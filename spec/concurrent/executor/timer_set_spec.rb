@@ -123,21 +123,35 @@ module Concurrent
     end
 
     it 'cancels all pending tasks on #shutdown' do
-      expected = AtomicFixnum.new(0)
-      10.times{ subject.post(0.2){ expected.increment } }
-      sleep(0.1)
+      count = 10
+      latch_start = Concurrent::CountDownLatch.new
+      latch_end = Concurrent::CountDownLatch.new
+      count.times do
+        subject.post(0.1) do
+          latch.wait
+          expected.increment
+          latch_end.count_down
+        end
+      end
       subject.shutdown
-      sleep(0.2)
-      expect(expected.value).to eq 0
+      latch_start.count_down
+      expect(latch_end.wait(0.2)).to be false
     end
 
     it 'cancels all pending tasks on #kill' do
-      expected = AtomicFixnum.new(0)
-      10.times{ subject.post(0.2){ expected.increment } }
-      sleep(0.1)
+      count = 10
+      latch_start = Concurrent::CountDownLatch.new
+      latch_end = Concurrent::CountDownLatch.new
+      count.times do
+        subject.post(0.1) do
+          latch.wait
+          expected.increment
+          latch_end.count_down
+        end
+      end
       subject.kill
-      sleep(0.2)
-      expect(expected.value).to eq 0
+      latch_start.count_down
+      expect(latch_end.wait(0.2)).to be false
     end
 
     it 'stops the monitor thread on #shutdown' do

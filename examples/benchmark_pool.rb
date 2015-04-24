@@ -1,3 +1,7 @@
+#!/usr/bin/env ruby
+
+$: << File.expand_path('../../lib', __FILE__)
+
 require 'thread'
 require 'concurrent'
 require 'concurrent/logging'
@@ -76,7 +80,7 @@ module Concurrent
   end
 
   class OldRubyThreadPoolExecutor
-    include RubyExecutor
+    include RubyExecutorService
 
     # Default maximum number of threads that will be created in the pool.
     DEFAULT_MAX_POOL_SIZE      = 2**15 # 32768

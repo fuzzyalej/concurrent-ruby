@@ -1,12 +1,11 @@
 if Concurrent.on_jruby?
-  require_relative 'executor'
+  require_relative 'executor_service'
 
   module Concurrent
 
     # @!macro thread_pool_executor
     # @!macro thread_pool_options
-    class JavaThreadPoolExecutor
-      include JavaExecutor
+    class JavaThreadPoolExecutor < JavaExecutorService
 
       # Default maximum number of threads that will be created in the pool.
       DEFAULT_MAX_POOL_SIZE = java.lang.Integer::MAX_VALUE # 2147483647
@@ -53,6 +52,8 @@ if Concurrent.on_jruby?
       #
       # @see http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/ThreadPoolExecutor.html
       def initialize(opts = {})
+        super()
+
         min_length = opts.fetch(:min_threads, DEFAULT_MIN_POOL_SIZE).to_i
         max_length = opts.fetch(:max_threads, DEFAULT_MAX_POOL_SIZE).to_i
         idletime = opts.fetch(:idletime, DEFAULT_THREAD_IDLETIMEOUT).to_i
