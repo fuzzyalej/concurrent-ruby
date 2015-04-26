@@ -1,4 +1,5 @@
 require 'thread'
+require 'concurrent/synchronization'
 
 module Concurrent
 
@@ -6,17 +7,17 @@ module Concurrent
   # success - indicating if the callable has been executed without errors
   # value - filled by the callable result if it has been executed without errors, nil otherwise
   # reason - the error risen by the callable if it has been executed with errors, nil otherwise
-  class SafeTaskExecutor
+  class SafeTaskExecutor < Synchronization::Object
 
     def initialize(task, opts = {})
+      super()
       @task = task
-      @mutex = Mutex.new
       @exception_class = opts.fetch(:rescue_exception, false) ? Exception : StandardError
     end
 
     # @return [Array]
     def execute(*args)
-      @mutex.synchronize do
+      synchronize do
         success = false
         value = reason = nil
 

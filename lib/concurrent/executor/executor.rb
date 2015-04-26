@@ -308,8 +308,8 @@ module Concurrent
     #
     #   Initialize the executor by creating and initializing all the
     #   internal synchronization objects.
-    def init_executor
-      @mutex         = Mutex.new
+    def init_executor(mutex = Mutex.new)
+      @mutex         = mutex
       @stop_event    = Event.new
       @stopped_event = Event.new
     end

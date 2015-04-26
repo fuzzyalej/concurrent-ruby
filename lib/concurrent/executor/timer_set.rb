@@ -1,8 +1,9 @@
-require 'thread'
 require 'concurrent/atomic/event'
 require 'concurrent/collection/priority_queue'
 require 'concurrent/executor/executor'
+require 'concurrent/executor/executor_options'
 require 'concurrent/executor/single_thread_executor'
+require 'concurrent/synchronization'
 require 'concurrent/utility/monotonic_time'
 
 module Concurrent
@@ -12,7 +13,7 @@ module Concurrent
   # time. Tasks are run on the global task pool or on the supplied executor.
   #
   # @!macro monotonic_clock_warning
-  class TimerSet
+  class TimerSet < Synchronization::Object
     include RubyExecutor
 
     # Create a new set of timed tasks.
@@ -25,11 +26,14 @@ module Concurrent
     #     `:operation` returns the global operation pool, and `:immediate` returns a new
     #     `ImmediateExecutor` object.
     def initialize(opts = {})
+      super()
+      init_executor(self)
+
       @queue          = PriorityQueue.new(order: :min)
       @task_executor  = Executor.executor_from_options(opts) || Concurrent.global_io_executor
       @timer_executor = SingleThreadExecutor.new
-      @condition      = Condition.new
-      init_executor
+      @condition      = Event.new
+
       self.auto_terminate = opts.fetch(:auto_terminate, true)
     end
 
@@ -51,7 +55,7 @@ module Concurrent
       raise ArgumentError.new('no block given') unless block_given?
       delay = TimerSet.calculate_delay!(delay) # raises exceptions
 
-      mutex.synchronize do
+      synchronize do
         return false unless running?
 
         if (delay) <= 0.01
@@ -60,9 +64,8 @@ module Concurrent
           @queue.push(Task.new(Concurrent.monotonic_time + delay, args, task))
           @timer_executor.post(&method(:process_tasks))
         end
+        @condition.set
       end
-
-      @condition.signal
       true
     end
 
@@ -134,7 +137,7 @@ module Concurrent
     # @!visibility private
     def process_tasks
       loop do
-        task = mutex.synchronize { @queue.peek }
+        task = synchronize { @condition.reset; @queue.peek }
         break unless task
 
         now = Concurrent.monotonic_time
@@ -153,12 +156,10 @@ module Concurrent
           # the only reader, so whatever timer is at the head of the
           # queue now must have the same pop time, or a closer one, as
           # when we peeked).
-          task = mutex.synchronize { @queue.pop }
+          task = synchronize { @queue.pop }
           @task_executor.post(*task.args, &task.op)
         else
-          mutex.synchronize do
-            @condition.wait(mutex, [diff, 60].min)
-          end
+          @condition.wait([diff, 60].min)
         end
       end
     end
